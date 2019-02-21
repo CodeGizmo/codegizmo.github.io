@@ -1,0 +1,712 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<style>
+	div#myhead {
+		position: sticky;
+		top: 0px;
+		//left: 0px;
+		height: 80px;
+		pSSING: 5px;
+		border: 3px solid #73AD21;
+		background: cyan;
+	}
+</style>
+<script>
+</script>
+</head>
+<body>
+	www.codegizmo.com
+	<div id="myhead">
+	<h1>Welcome to CodeGizmo</h1>
+	</div>
+</body>
+</html>
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <script id="worker1" type="javascript/worker">
+	// The JS engine will ignore parsing this, first script element, 
+	// during loading since its type is javascript/worker;
+	var workerLoops=0;
+	var workActive=0;
+	var endlessLoop=0;
+	var instances=0;
+    self.onmessage = function(e) {
+		if(e.data=="s") {
+			//if(!workActive){ // uncomment this if don't want duplicate instances
+				workActive=1;
+				instances++;
+				timedCount();
+			//}
+		}
+		if(e.data == "q") workActive = 0;
+		if(e.data == "i") endlessLoop = 1;
+		if(e.data == "z") endlessLoop = 0;
+		var themsg="real msg";
+		if(e.data == "x") self.postMessage({'cmd':'mycmd','msg':themsg});
+    };
+	function sleep(ms) {
+		return new Promise(resolve => setTimeout(resolve, ms));
+	}
+	// Promise, async, await -- asynchronous directives mainly used for the sleep in this exercise code
+	async function timedCount(){
+		if(endlessLoop){
+			while(endlessLoop && workActive){
+				//self.postMessage(workerLoops.toString());	// already assigned to a helper thread
+				workerLoops++;
+				// infinite loop hugs the thread process, 
+				//   must have some guaranteed yield point to let other threads preempt to process.
+				//if(workerLoops%100000000==0)
+				if(workerLoops%10000000 == 0) await sleep(1);
+			}
+		}
+		if(workActive) {
+			workerLoops++;
+			instances++;
+			setTimeout("timedCount()",1);
+		}
+		instances--;
+	}
+	function refresher(){
+		self.postMessage({'cmd':'stats','loops':workerLoops,'dups':instances});
+		setTimeout("refresher()",50);
+	}
+	refresher();
+  </script>
+
+  <script>
+	var n1, n2, n3, nv;										// loops count
+	var up1, up2, up3;								// threads up flag
+	var inf1, inf2, inf3;							// endless loop flag
+	var instances1, instances2, instances3;			// active thread instance duplicate counts
+	n1, n2 = n3 = nv = up1 = up2 = up3 = inf1 = inf2 = inf3 = 0;
+	instances1 = instances2 = instances3 = 0;
+	
+	function display(){
+		var ele = document.getElementById("mymsg");	// when the html is still loading this is null
+		if(ele) ele.innerHTML = instances1.toString()+"A"+(up1?"on":"off")+(inf1?":inf":"")
+				+", "+instances2.toString()+"B"+(up2?"on":"off")+(inf2?":inf":"")
+				+", "+instances3.toString()+"C"+(up3?"on":"off")+(inf3?":inf":"");
+	}
+    var blob = new Blob([document.querySelector('#worker1').textContent]);
+	//var blob = new Blob([document.getElementById('worker1').innerHTML]);
+    var worker = new Worker(window.URL.createObjectURL(blob));
+    worker.onmessage = function(e) {
+		var data = e.data;
+		if(data.cmd=="mycmd"){
+			document.getElementById("mystat").innerHTML = "SUCCESS: "+data.msg;
+		} else if(data.cmd=="stats"){
+			n1 = data.loops;
+			instances1 = data.dups;
+		} else {
+			//n1 = e.data;
+		}
+    }
+	worker.onerror = function onError(e) {
+		document.getElementById('myerror').textContent = [
+			'ERROR: Line ', e.lineno, ' in ', e.filename, ': ', e.message
+		].join('');
+	}
+	/*worker.addEventListener('message', function(e) {
+	  console.log('Worker said: ', e.data);
+	}, false);*/
+	function startInf(){ worker.postMessage("i"); display(); }
+	function stopInf(){ worker.postMessage("z"); display(); }
+	function startWork(){ worker.postMessage("s"); display(); }
+	function endWork(){ worker.postMessage("q"); display(); }
+	function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+	async function timedCount2(){
+		if(inf2) { while(inf2 && up2){ n2++; if(n2%10000000 == 0) await sleep(1); } }
+		if(up2) { n2++; instances2++; setTimeout("timedCount2()",1); }
+		instances2--;
+	}
+	async function timedCount3(){
+		if(inf3) { while(inf3 && up3){ n3++; if(n3%10000000 == 0) await sleep(1); } }
+		if(up3) { n3++; instances3++; setTimeout("timedCount3()",1); }
+		instances3--;
+	}
+	function timedCount4(){
+		if(up1) document.getElementById("log1").innerHTML = "Real Thread A: "+n1+" loops";
+		if(up2) document.getElementById("log2").innerHTML = "Pseudo Thread B: "+n2+" loops";
+		if(up3) document.getElementById("log3").innerHTML = "Pseudo Thread C: "+n3+" loops";
+		//document.getElementById("mystat").innerHTML = "Viewer Thread: "+nv+" loops";
+		var statEle=document.getElementById("mystat");
+		if(statEle) statEle.innerHTML="Viewer Thread: "+nv+" loops"; 
+		nv++;
+		display();
+		setTimeout("timedCount4()",1);
+	}
+	timedCount4();	// starts the helper pseudo thread
+  </script>
+</head>
+
+<body>
+	<p id="mymsg">thread states</p>
+	<span><p id="log1">Real Thread A</p><button onclick="up1=1;startWork()">start A</button>
+								<button onclick="up1=0;endWork()">stop A</button>
+								<button onclick="inf1=1;startInf()">start infinity loop A</button>
+								<button onclick="inf1=0;stopInf()">stop infinity loop A</button></span>
+	<span><p id="log2">Pseudo Thread B</p><button onclick="up2=1;display();instances2++;timedCount2()">start B</button>
+								<button onclick="up2=0;display()">stop B</button>
+								<button onclick="inf2=1";display()>start infinity loop B</button>
+								<button onclick="inf2=0";display()>stop infinity loop B</button></span>
+	<span><p id="log3">Pseudo Thread C</p><button onclick="up3=1;display();instances3++;timedCount3()">start C</button>
+								<button onclick="up3=0;display()">stop C</button>
+								<button onclick="inf3=1";display()>start infinity loop C</button>
+								<button onclick="inf3=0";display()>stop infinity loop C</button></span>
+	<p id="mystat">mystat</p>
+
+	<br>
+
+	<!--button onclick="getreply()">Get Reply</button-->
+</body>
+</html>
+<!DOCTYPE html>
+<html>
+<title>Web Page Design</title>
+<head>
+<style type="text/css">
+#div1
+{
+	//position:fixed;
+	//left:50px;
+	//top:80px;
+   width:100px;
+   height:75px;
+   background-color:red;
+   border:1px solid black;
+   transition: opacity 3s, background-color 3s, width 3s, height 2s, transform 2s;
+}
+#div2
+{
+  width:100px;
+   height:75px;
+   border:1px solid black;
+   transform:rotate(30deg);
+   /*/-ms-transform:rotate(30deg); /* IE 9 */
+   /*/-moz-transform:rotate(30deg); /* Firefox */
+   /*/-webkit-transform:rotate(30deg); /* Safari and Chrome */
+   /*/-o-transform:rotate(30deg); /* Opera */
+   background-color:yellow;
+}
+#div1:hover {
+	//position:absolute;
+	opacity: 0.1;
+  width: 300px;
+  height: 300px;
+  background-color:cyan;
+  -webkit-transform: rotate(180deg); /* Safari */
+  //transform: translate(400px,400px);
+  transform: translate(200px,200px) rotate(3600deg);
+  //transform-origin: 20% 40%;
+}
+#myDIV {
+	position:fixed;
+	top: 380px;
+	left: 450px;
+  margin: auto;
+  border: 1px solid black;
+  width: 200px;
+  height: 100px;
+  background-color: coral;
+  color: white;
+  -webkit-animation: mymove 5s infinite; /* Chrome, Safari, Opera */
+  animation: mymove 5s infinite;
+}
+
+/* Chrome, Safari, Opera */
+@-webkit-keyframes mymove {
+  50% {-webkit-transform: rotate(180deg);}
+}
+@keyframes mymove {
+  50%{transform: translate(-400px,100px) rotate(720deg)}
+}
+</style>
+<script>
+    var deg=0;
+	var w;
+	var i = 0;
+	var active=1;
+	
+    function whenmousemove(){
+        deg++;
+        document.getElementById("div2")
+            .style.transform = 'rotate('+deg+'deg)';
+    }
+	function startWorker() {
+	  active=1;
+	  timedCount();
+	}
+	function stopWorker() { 
+	  active=0;
+	}
+	function timedCount() {
+	  i = i + 1;
+	  document.getElementById("result").innerHTML = i;
+	  whenmousemove();
+	  if(active)
+		setTimeout("timedCount()",5);
+	}
+	setTimeout("timedCount()",1000);
+</script>
+</head>
+<body>
+<p>Count numbers: <output id="result"></output></p>
+<button onclick="startWorker()">Start activity</button> 
+<button onclick="stopWorker()">Stop activity</button>
+
+<div id="div1">Hover over me</div>
+<div id="div2" onmousemove="whenmousemove()">Move mouse over me</div>
+<div id="myDIV"><h1>I just love to spin</h1></div>
+</body>
+</html>
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<meta name="description" content="Personal Experimentation">
+		<meta name="keywords" content="HTML,CSS,JavaScript">
+		<meta name="author" content="Angelo Lanuza">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>Events Practice</title>
+	</head>
+	<style>
+		canvas {
+		  border:1px solid black;
+		}
+	</style>
+	<script type="text/javascript">
+		y = x = lastY = lastX = minX = minY = maxX = maxY = 0;
+		fMouseDown = false;
+		shapeSelected = 1;
+		c = document.getElementById("myCanvas");
+		ctx = c.getContext("2d");
+		//alert("started");
+		function dispDateTime()
+		{
+			document.getElementById("demo").innerHTML="Date/Time: " +Date();
+		}
+		function showMouse() {
+			var coor = "Click: " + fMouseDown + ", lastY: " + lastY + ", lastX: " + lastX + ", Y: " + y + ", X: " + x;
+			document.getElementById("demo").innerHTML = coor;
+		}
+		function myCanvasOnLoad(){
+			dispDateTime();
+			c = document.getElementById("myCanvas");
+			ctx = c.getContext("2d");
+			setStrokeVal();
+			setFillVal();
+			//ctx.fillRect(0, 0, 80, 100);
+		}
+		function myMouseDown() {
+			fMouseDown = true;
+			lastY = x = event.offsetY;
+			lastX = y = event.offsetX;
+			showMouse();
+			switch(shapeSelected){
+				case 5:
+					break;
+				default:
+					ctx.beginPath();
+					ctx.moveTo(lastX,lastY);
+					break;
+			}
+		}
+		function myMouseUp() {
+			fMouseDown = false;
+			showMouse();
+			//ctx.restore();
+			//ctx.save();
+			switch(shapeSelected){
+			case 1:
+				break;
+			case 2:
+				ctx.lineTo(x,y);
+				ctx.stroke();
+				break;
+			case 3:
+				ctx.rect(lastX, lastY, x-lastX, y-lastY);
+				ctx.stroke();
+				break;
+			case 4:
+				ctx.fillRect(lastX, lastY, x-lastX, y-lastY);
+				break;
+			case 5:
+				ctx.beginPath();
+				minX = Math.min(x, lastX);
+				minY = Math.min(y, lastY);
+				maxX = Math.max(x, lastX);
+				maxY = Math.max(y, lastY);
+				ctx.arc(minX+(maxX-minX)/2, 
+					minY+(maxY-minY)/2, 
+					Math.min(maxX-minX,maxY-minY)/2, 
+					0, 2 * Math.PI);
+				ctx.stroke(); 
+				break;
+			case 6:
+			
+				break;
+			default:
+				//ctx.globalAlpha=0.5;
+				ctx.rect(lastX, lastY, x-lastX, y-lastY);
+				ctx.stroke();
+				ctx.beginPath();
+				minX = Math.min(x, lastX);
+				minY = Math.min(y, lastY);
+				maxX = Math.max(x, lastX);
+				maxY = Math.max(y, lastY);
+				ctx.arc(minX+(maxX-minX)/2, 
+					minY+(maxY-minY)/2, 
+					Math.min(maxX-minX,maxY-minY)/2, 
+					0, 2 * Math.PI);
+				ctx.stroke();
+				//ctx.fillRect(lastX, lastY, x, y);
+			}
+		}
+		function myMouseMove() {
+			y = event.offsetY;
+			x = event.offsetX;
+			showMouse();
+			if(fMouseDown){
+				switch(shapeSelected){
+				case 1:
+					ctx.lineTo(x,y);
+					ctx.stroke();
+					break;
+				default:
+					break;
+				}
+			}
+		}
+		window.onload = function() {
+			document.getElementById("demo").innerHTML="Disp Dt/Tm: "+Date();
+			//myOnLoad();
+		}
+		/*window.onmousemove = function() {
+			var x = event.clientX;
+			var y = event.clientY; 
+			var coor = "clientX: " + x + ", clientY: " + y;
+			document.getElementById("demo").innerHTML = coor;
+		}*/
+		function putImage()
+		{
+			//c = document.getElementById("myCanvas");
+			//ctx = c.getContext("2d");
+			myImage = c.toDataURL("image/png").replace("image/png", "image/octet-stream");
+			window.location.href=myImage;
+		} 
+		function download_my_canvas() {
+			//c = document.getElementById("myCanvas");
+			//document.location.href = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream");
+			
+			//var url = c.toDataURL('image/png');
+			
+			//var canvas = document.getElementById("myCanvas");
+			//var ctx = canvas.getContext("2d");
+
+			baseimage        = new Image();
+			baseimage.onload = function() {
+				ctx.drawImage(baseimage,1,1);    
+				var dataURL = canvas.toDataURL("image/png");
+				document.getElementById('canvasImg').src = dataURL;
+			}
+			baseimage.src    = 'what.jpg';
+		}
+		function setStrokeVal(){
+			ctx.strokeStyle = document.getElementById("mycolid").value;
+		}
+		function setFillVal(){
+			ctx.fillStyle = document.getElementById("mycolid2").value;
+		}
+	</script>
+	<body>
+		<button id="dispDateTime" type="button" onclick="dispDateTime()">
+			Disp Dt/Tm.
+		</button>
+		<p id="demo">yow!</p>
+			<input type="color" id="mycolid" onchange="setStrokeVal()" value=#ff0000>FG</input>
+			<input type="color" id="mycolid2" onchange="setFillVal()" value=#00ff00>BG</input>
+			<button onclick="shapeSelected=1" ><img src="images/pencil80px.gif"/>Pen</button>
+			<button onclick="shapeSelected=2" ><img src="images/line80px.gif"/>Line</button>
+			<button onclick="shapeSelected=3" ><img src="images/box80px.gif"/>Box</button>
+			<button onclick="shapeSelected=4" ><img src="images/fillbox80px.gif"/>Block</button>
+			<button onclick="shapeSelected=5" ><img src="images/circle80px.gif"/>Circle</button>
+			<button onclick="shapeSelected=6" ><img src="images/fillcircle80px.gif"/>None</button>
+		<div>
+			<canvas id="myCanvas" width="800" height="600" 
+				onmousedown="myMouseDown()"
+				onmouseup="myMouseUp()"
+				onmousemove="myMouseMove()">
+				Your browser does not support the HTML5 canvas tag.
+			</canvas>
+			<!--onload="myCanvasOnLoad()" - this does not work on canvas, alt is script below -->
+			<script> myCanvasOnLoad(); </script>
+		</div>
+		<!--button type="button" onclick="download_my_canvas()">
+			Save Canvas Image
+		</button-->
+	</body>
+</html>
+
+<!doctype html>
+<html>
+   <body>
+      <canvas width = "400" height = "400" id = "my_Canvas3"></canvas>
+
+      <script>
+         /*============= Creating a canvas ======================*/
+         var canvas = document.getElementById('my_Canvas3');
+         gl = canvas.getContext('experimental-webgl');
+
+         /*========== Defining and storing the geometry ==========*/
+
+         var vertices = [
+            -1,-1,-1, 1,-1,-1, 1, 1,-1, -1, 1,-1,
+            -1,-1, 1, 1,-1, 1, 1, 1, 1, -1, 1, 1,
+            -1,-1,-1, -1, 1,-1, -1, 1, 1, -1,-1, 1,
+            1,-1,-1, 1, 1,-1, 1, 1, 1, 1,-1, 1,
+            -1,-1,-1, -1,-1, 1, 1,-1, 1, 1,-1,-1,
+            -1, 1,-1, -1, 1, 1, 1, 1, 1, 1, 1,-1, 
+         ];
+
+         var colors = [
+            5,3,7, 5,3,7, 5,3,7, 5,3,7,
+            1,1,3, 1,1,3, 1,1,3, 1,1,3,
+            0,0,1, 0,0,1, 0,0,1, 0,0,1,
+            1,0,0, 1,0,0, 1,0,0, 1,0,0,
+            1,1,0, 1,1,0, 1,1,0, 1,1,0,
+            0,1,0, 0,1,0, 0,1,0, 0,1,0 
+         ];
+
+         var indices = [
+            0,1,2, 0,2,3, 4,5,6, 4,6,7,
+            8,9,10, 8,10,11, 12,13,14, 12,14,15,
+            16,17,18, 16,18,19, 20,21,22, 20,22,23 
+         ];
+
+         // Create and store data into vertex buffer
+         var vertex_buffer = gl.createBuffer ();
+         gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
+         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+
+         // Create and store data into color buffer
+         var color_buffer = gl.createBuffer ();
+         gl.bindBuffer(gl.ARRAY_BUFFER, color_buffer);
+         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
+
+         // Create and store data into index buffer
+         var index_buffer = gl.createBuffer ();
+         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index_buffer);
+         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+
+         /*=================== SHADERS =================== */
+
+         var vertCode = 'attribute vec3 position;'+
+            'uniform mat4 Pmatrix;'+
+            'uniform mat4 Vmatrix;'+
+            'uniform mat4 Mmatrix;'+
+            'attribute vec3 color;'+//the color of the point
+            'varying vec3 vColor;'+
+            'void main(void) { '+//pre-built function
+               'gl_Position = Pmatrix*Vmatrix*Mmatrix*vec4(position, 1.);'+
+               'vColor = color;'+
+            '}';
+
+         var fragCode = 'precision mediump float;'+
+            'varying vec3 vColor;'+
+            'void main(void) {'+
+               'gl_FragColor = vec4(vColor, 1.);'+
+            '}';
+
+         var vertShader = gl.createShader(gl.VERTEX_SHADER);
+         gl.shaderSource(vertShader, vertCode);
+         gl.compileShader(vertShader);
+
+         var fragShader = gl.createShader(gl.FRAGMENT_SHADER);
+         gl.shaderSource(fragShader, fragCode);
+         gl.compileShader(fragShader);
+
+         var shaderprogram = gl.createProgram();
+         gl.attachShader(shaderprogram, vertShader);
+         gl.attachShader(shaderprogram, fragShader);
+         gl.linkProgram(shaderprogram);
+
+         /*======== Associating attributes to vertex shader =====*/
+         var _Pmatrix = gl.getUniformLocation(shaderprogram, "Pmatrix");
+         var _Vmatrix = gl.getUniformLocation(shaderprogram, "Vmatrix");
+         var _Mmatrix = gl.getUniformLocation(shaderprogram, "Mmatrix");
+
+         gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
+         var _position = gl.getAttribLocation(shaderprogram, "position");
+         gl.vertexAttribPointer(_position, 3, gl.FLOAT, false,0,0);
+         gl.enableVertexAttribArray(_position);
+
+         gl.bindBuffer(gl.ARRAY_BUFFER, color_buffer);
+         var _color = gl.getAttribLocation(shaderprogram, "color");
+         gl.vertexAttribPointer(_color, 3, gl.FLOAT, false,0,0) ;
+         gl.enableVertexAttribArray(_color);
+         gl.useProgram(shaderprogram);
+
+         /*==================== MATRIX ====================== */
+
+         function get_projection(angle, a, zMin, zMax) {
+            var ang = Math.tan((angle*.5)*Math.PI/180);//angle*.5
+            return [
+               0.5/ang, 0 , 0, 0,
+               0, 0.5*a/ang, 0, 0,
+               0, 0, -(zMax+zMin)/(zMax-zMin), -1,
+               0, 0, (-2*zMax*zMin)/(zMax-zMin), 0 
+			   ];
+         }
+
+         var proj_matrix = get_projection(40, canvas.width/canvas.height, 1, 100);
+         var mo_matrix = [ 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 ];
+         var view_matrix = [ 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 ];
+
+         view_matrix[14] = view_matrix[14]-6;
+
+         /*================= Mouse events ======================*/
+
+         var AMORTIZATION = 0.95;
+         var drag = false;
+         var old_x, old_y;
+         var dX = 0, dY = 0;
+
+         var mouseDown = function(e) {
+            drag = true;
+            old_x = e.pageX, old_y = e.pageY;
+            e.preventDefault();
+            return false;
+         };
+
+         var mouseUp = function(e){
+            drag = false;
+         };
+
+         var mouseMove = function(e) {
+            if (!drag) return false;
+            dX = (e.pageX-old_x)*2*Math.PI/canvas.width,
+            dY = (e.pageY-old_y)*2*Math.PI/canvas.height;
+            THETA+= dX;
+            PHI+=dY;
+            old_x = e.pageX, old_y = e.pageY;
+            e.preventDefault();
+         };
+
+         canvas.addEventListener("mousedown", mouseDown, false);
+         canvas.addEventListener("mouseup", mouseUp, false);
+         canvas.addEventListener("mouseout", mouseUp, false);
+         canvas.addEventListener("mousemove", mouseMove, false);
+
+         /*=========================rotation================*/
+
+         function rotateX(m, angle) {
+            var c = Math.cos(angle);
+            var s = Math.sin(angle);
+            var mv1 = m[1], mv5 = m[5], mv9 = m[9];
+
+            m[1] = m[1]*c-m[2]*s;
+            m[5] = m[5]*c-m[6]*s;
+            m[9] = m[9]*c-m[10]*s;
+
+            m[2] = m[2]*c+mv1*s;
+            m[6] = m[6]*c+mv5*s;
+            m[10] = m[10]*c+mv9*s;
+         }
+
+         function rotateY(m, angle) {
+            var c = Math.cos(angle);
+            var s = Math.sin(angle);
+            var mv0 = m[0], mv4 = m[4], mv8 = m[8];
+
+            m[0] = c*m[0]+s*m[2];
+            m[4] = c*m[4]+s*m[6];
+            m[8] = c*m[8]+s*m[10];
+
+            m[2] = c*m[2]-s*mv0;
+            m[6] = c*m[6]-s*mv4;
+            m[10] = c*m[10]-s*mv8;
+         }
+
+         /*=================== Drawing =================== */
+
+         var THETA = 0,
+         PHI = 0;
+         var time_old = 0;
+
+         var animate = function(time) {
+            var dt = time-time_old;
+
+            if (!drag) {
+               dX *= AMORTIZATION, dY*=AMORTIZATION;
+               THETA+=dX, PHI+=dY;
+            }
+
+            //set model matrix to I4
+
+            mo_matrix[0] = 1, mo_matrix[1] = 0, mo_matrix[2] = 0,
+            mo_matrix[3] = 0,
+
+            mo_matrix[4] = 0, mo_matrix[5] = 1, mo_matrix[6] = 0,
+            mo_matrix[7] = 0,
+
+            mo_matrix[8] = 0, mo_matrix[9] = 0, mo_matrix[10] = 1,
+            mo_matrix[11] = 0,
+
+            mo_matrix[12] = 0, mo_matrix[13] = 0, mo_matrix[14] = 0,
+            mo_matrix[15] = 1;
+
+            rotateY(mo_matrix, THETA);
+            rotateX(mo_matrix, PHI);
+
+            time_old = time; 
+            gl.enable(gl.DEPTH_TEST);
+
+            // gl.depthFunc(gl.LEQUAL);
+
+            gl.clearColor(0.5, 0.5, 0.5, 0.9);
+            gl.clearDepth(1.0);
+            gl.viewport(0.0, 0.0, canvas.width, canvas.height);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            gl.uniformMatrix4fv(_Pmatrix, false, proj_matrix);
+            gl.uniformMatrix4fv(_Vmatrix, false, view_matrix);
+            gl.uniformMatrix4fv(_Mmatrix, false, mo_matrix);
+
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index_buffer);
+            gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
+
+            window.requestAnimationFrame(animate);
+         }
+         animate(0);
+      </script>
+   </body>
+</html> 
+
+<!DOCTYPE html>
+<html>
+<body>
+
+<svg height="130" width="500">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"
+      style="stop-color:rgb(255,255,0);stop-opacity:1" />
+      <stop offset="100%"
+      style="stop-color:rgb(255,0,0);stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <ellipse cx="100" cy="70" rx="85" ry="55" fill="url(#grad1)" />
+  <text fill="#ffffff" font-size="45" font-family="Verdana"
+  x="50" y="86">SVG</text>
+Sorry, your browser does not support inline SVG.
+</svg>
+
+</body>
+</html>
+
+

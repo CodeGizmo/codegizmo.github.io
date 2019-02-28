@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<meta name="description" content="Personal Experimentation">
+		<meta name="keywords" content="HTML,CSS,JavaScript">
+		<meta name="author" content="Angelo Lanuza">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>Events Practice</title>
+	</head>
+	<style>
+		canvas {
+		  border:1px solid black;
+		}
+	</style>
+	<script type="text/javascript">
+		y = x = lastY = lastX = minX = minY = maxX = maxY = 0;
+		fMouseDown = false;
+		shapeSelected = 1;
+		c = document.getElementById("myCanvas");
+		ctx = c.getContext("2d");
+		//alert("started");
+		function dispDateTime()
+		{
+			document.getElementById("demo").innerHTML="Date/Time: " +Date();
+		}
+		function showMouse() {
+			var coor = "Click: " + fMouseDown + ", lastY: " + lastY + ", lastX: " + lastX + ", Y: " + y + ", X: " + x;
+			document.getElementById("demo").innerHTML = coor;
+		}
+		function myCanvasOnLoad(){
+			dispDateTime();
+			c = document.getElementById("myCanvas");
+			ctx = c.getContext("2d");
+			setStrokeVal();
+			setFillVal();
+			//ctx.fillRect(0, 0, 80, 100);
+		}
+		function myMouseDown() {
+			fMouseDown = true;
+			lastY = x = event.offsetY;
+			lastX = y = event.offsetX;
+			showMouse();
+			switch(shapeSelected){
+				case 5:
+					break;
+				default:
+					ctx.beginPath();
+					ctx.moveTo(lastX,lastY);
+					break;
+			}
+		}
+		function myMouseUp() {
+			fMouseDown = false;
+			showMouse();
+			//ctx.restore();
+			//ctx.save();
+			switch(shapeSelected){
+			case 1:
+				break;
+			case 2:
+				ctx.lineTo(x,y);
+				ctx.stroke();
+				break;
+			case 3:
+				ctx.rect(lastX, lastY, x-lastX, y-lastY);
+				ctx.stroke();
+				break;
+			case 4:
+				ctx.fillRect(lastX, lastY, x-lastX, y-lastY);
+				break;
+			case 5:
+				ctx.beginPath();
+				minX = Math.min(x, lastX);
+				minY = Math.min(y, lastY);
+				maxX = Math.max(x, lastX);
+				maxY = Math.max(y, lastY);
+				ctx.arc(minX+(maxX-minX)/2, 
+					minY+(maxY-minY)/2, 
+					Math.min(maxX-minX,maxY-minY)/2, 
+					0, 2 * Math.PI);
+				ctx.stroke(); 
+				break;
+			case 6:
+			
+				break;
+			default:
+				//ctx.globalAlpha=0.5;
+				ctx.rect(lastX, lastY, x-lastX, y-lastY);
+				ctx.stroke();
+				ctx.beginPath();
+				minX = Math.min(x, lastX);
+				minY = Math.min(y, lastY);
+				maxX = Math.max(x, lastX);
+				maxY = Math.max(y, lastY);
+				ctx.arc(minX+(maxX-minX)/2, 
+					minY+(maxY-minY)/2, 
+					Math.min(maxX-minX,maxY-minY)/2, 
+					0, 2 * Math.PI);
+				ctx.stroke();
+				//ctx.fillRect(lastX, lastY, x, y);
+			}
+		}
+		function myMouseMove() {
+			y = event.offsetY;
+			x = event.offsetX;
+			showMouse();
+			if(fMouseDown){
+				switch(shapeSelected){
+				case 1:
+					ctx.lineTo(x,y);
+					ctx.stroke();
+					break;
+				default:
+					break;
+				}
+			}
+		}
+		window.onload = function() {
+			document.getElementById("demo").innerHTML="Disp Dt/Tm: "+Date();
+			//myOnLoad();
+		}
+		/*window.onmousemove = function() {
+			var x = event.clientX;
+			var y = event.clientY; 
+			var coor = "clientX: " + x + ", clientY: " + y;
+			document.getElementById("demo").innerHTML = coor;
+		}*/
+		function putImage()
+		{
+			//c = document.getElementById("myCanvas");
+			//ctx = c.getContext("2d");
+			myImage = c.toDataURL("image/png").replace("image/png", "image/octet-stream");
+			window.location.href=myImage;
+		} 
+		function download_my_canvas() {
+			//c = document.getElementById("myCanvas");
+			//document.location.href = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream");
+			
+			//var url = c.toDataURL('image/png');
+			
+			//var canvas = document.getElementById("myCanvas");
+			//var ctx = canvas.getContext("2d");
+
+			baseimage        = new Image();
+			baseimage.onload = function() {
+				ctx.drawImage(baseimage,1,1);    
+				var dataURL = canvas.toDataURL("image/png");
+				document.getElementById('canvasImg').src = dataURL;
+			}
+			baseimage.src    = 'what.jpg';
+		}
+		function setStrokeVal(){
+			ctx.strokeStyle = document.getElementById("mycolid").value;
+		}
+		function setFillVal(){
+			ctx.fillStyle = document.getElementById("mycolid2").value;
+		}
+	</script>
+	<body>
+		<button id="dispDateTime" type="button" onclick="dispDateTime()">
+			Disp Dt/Tm.
+		</button>
+		<p id="demo">yow!</p>
+			<input type="color" id="mycolid" onchange="setStrokeVal()" value=#ff0000>FG</input>
+			<input type="color" id="mycolid2" onchange="setFillVal()" value=#00ff00>BG</input>
+			<button onclick="shapeSelected=1" ><img src="images/pencil80px.gif" alt="Pen"/></button>
+			<button onclick="shapeSelected=2" ><img src="images/line80px.gif" alt="Line"/></button>
+			<button onclick="shapeSelected=3" ><img src="images/box80px.gif" alt="Box"/></button>
+			<button onclick="shapeSelected=4" ><img src="images/fillbox80px.gif" alt="Block"/></button>
+			<button onclick="shapeSelected=5" ><img src="images/circle80px.gif" alt="Circle"/></button>
+			<button onclick="shapeSelected=6" ><img src="images/fillcircle80px.gif" alt="None"/></button>
+		<div>
+			<canvas id="myCanvas" width="800" height="600" 
+				onmousedown="myMouseDown()"
+				onmouseup="myMouseUp()"
+				onmousemove="myMouseMove()">
+				Your browser does not support the HTML5 canvas tag.
+			</canvas>
+			<!--onload="myCanvasOnLoad()" - this does not work on canvas, alt is script below -->
+			<script> myCanvasOnLoad(); </script>
+		</div>
+		<!--button type="button" onclick="download_my_canvas()">
+			Save Canvas Image
+		</button-->
+	</body>
+</html>
